@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Recipe Chatbot</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <style>
+    #chat-box {
+      height: 450px;
+      overflow-y: auto;
+      background: #f8f9fa;
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .msg-user {
+      align-self: flex-end;
+      background: #0d6efd;
+      color: white;
+      padding: 10px 16px;
+      border-radius: 18px 18px 4px 18px;
+      max-width: 75%;
+      font-size: 0.95rem;
+    }
+    .msg-bot {
+      align-self: flex-start;
+      background: #fff;
+      border: 1px solid #dee2e6;
+      padding: 10px 16px;
+      border-radius: 18px 18px 18px 4px;
+      max-width: 75%;
+      font-size: 0.95rem;
+      white-space: pre-wrap;
+    }
+    .msg-bot.typing {
+      color: #aaa;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body class="bg-light py-5">
+
+  <div class="container" style="max-width: 700px;">
+
+    <a href="javascript:history.back()" class="btn btn-outline-secondary btn-sm mb-4">← Back to Recipe</a>
+
+    <div class="card shadow-sm p-4">
+      <h1 class="h4 fw-bold mb-1">🤖 Recipe Assistant</h1>
+      <p class="text-muted small mb-3">Ask me anything about this recipe, ingredients, or nutrition!</p>
+
+      <div id="chat-box">
+        <div class="msg-bot"> Hi! I know your recipe. Ask me anything — substitutions, nutrition, cooking tips, anything!</div>
+      </div>
+
+      <div class="d-flex gap-2 mt-3">
+        <input
+          type="text"
+          id="user-input"
+          class="form-control"
+          placeholder="e.g. How many calories? Can I substitute butter?"
+          onkeydown="if(event.key==='Enter') sendMessage()"
+        />
+        <button class="btn btn-primary px-4" onclick="sendMessage()">Send</button>
+      </div>
+
+      <!-- Quick suggestion buttons -->
+      <div class="d-flex flex-wrap gap-2 mt-3">
+        <button class="btn btn-outline-secondary btn-sm" onclick="ask('How many calories does this have?')">Calories</button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="ask('Can I make this vegetarian?')">Vegetarian?</button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="ask('What can I substitute for the main ingredient?')"> Substitutes</button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="ask('Give me tips to make this tastier')"> Cooking tips</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Get recipe context from URL
+    const params = new URLSearchParams(window.location.search);
+    const recipeContext = params.get('recipe') || '';
+    const ingredients = params.get('ingredients') || '';
+
+    function scrollToBottom() {
+      const box = document.getElementById('chat-box');
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function appendMessage(text, type) {
+      const box = document.getElementById('chat-box');
+      const div = document.createElement('div');
+      div.className = type === 'user' ? 'msg-user' : 'msg-bot';
+      div.textContent = text;
+      box.appendChild(div); 
+      scrollToBottom();
+      return div;
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById('user-input');
+      const message = input.value.trim();
+      if (!message) return;
+
+      input.value = '';
+      appendMessage(message, 'user');
+
+      // Show typing indicator
+      const typing = appendMessage('Typing...', 'bot');
+      typing.classList.add('typing');
+
+      const csrfToken = '{{ csrf_token }}';
+
+      const response = await fetch("{% url 'chatbot' %}", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken,
+        },
+        body: JSON.stringify({
+          message: message,
+          recipe_context: recipeContext + '\nIngredients: ' + ingredients,
+        }),
+      });
+
+      const data = await response.json();
+      typing.remove();
+      appendMessage(data.reply, 'bot');
+    }
+
+    function ask(question) {
+      document.getElementById('user-input').value = question;
+      sendMessage();
+    }
+  </script>
+
+</body>
+</html>
